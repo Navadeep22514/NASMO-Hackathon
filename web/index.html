@@ -1,0 +1,646 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>NASMO — Explainable Multi-Objective NAS with Optimality Certificates</title>
+<style>
+:root{
+  --navy:#0b1f3b; --navy2:#123a6b; --gold:#f0a500; --ink:#1b2430; --mut:#5b6b7f;
+  --bg:#eef2f8; --panel:#ffffff; --ok:#0a7d3f; --bad:#b3261e; --line:#dbe4ef;
+  --acc:#1d7fd6; --sel:#f0a500;
+}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{margin:0;font:14px/1.45 system-ui,"Segoe UI",Roboto,sans-serif;color:var(--ink);background:var(--bg)}
+button{font:inherit;cursor:pointer}
+select,input{font:inherit}
+
+/* ---------------- header ---------------- */
+header{background:linear-gradient(105deg,var(--navy) 0%,var(--navy2) 65%,var(--navy) 100%);
+  color:#fff;padding:14px 26px;border-bottom:4px solid var(--gold);
+  display:flex;align-items:center;gap:18px;flex-wrap:wrap}
+.logo{display:flex;align-items:center;gap:12px}
+.logo .mark{width:44px;height:44px;border:3px solid var(--gold);border-radius:10px;
+  display:flex;align-items:center;justify-content:center;font-weight:800;color:var(--gold);
+  font-size:20px;letter-spacing:-1px;background:rgba(255,255,255,.05)}
+.logo h1{margin:0;font-size:26px;letter-spacing:4px;font-weight:800}
+.logo .sub{font-size:12px;color:#ffd777;letter-spacing:.6px;font-weight:600}
+.badges{display:flex;gap:8px;flex-wrap:wrap;margin-left:auto}
+.badge{background:rgba(255,255,255,.1);border:1px solid rgba(255,215,119,.45);
+  color:#ffe2a3;border-radius:99px;padding:4px 12px;font-size:11.5px;font-weight:600;white-space:nowrap}
+.badge.b2{border-color:rgba(146,204,255,.5);color:#cfe6ff}
+
+/* ---------------- layout ---------------- */
+.wrap{display:grid;grid-template-columns:330px 1fr;gap:14px;padding:14px;max-width:1560px;margin:0 auto}
+@media (max-width:1050px){.wrap{grid-template-columns:1fr}}
+.col{display:flex;flex-direction:column;gap:14px;min-width:0}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px 16px;
+  box-shadow:0 1px 3px rgba(11,31,59,.06)}
+.panel h2{margin:0 0 10px;font-size:14px;color:var(--navy);letter-spacing:.4px;
+  text-transform:uppercase;border-left:4px solid var(--gold);padding-left:9px;
+  display:flex;align-items:center;gap:8px}
+.panel h2 .hint{font-weight:400;text-transform:none;letter-spacing:0;color:var(--mut);font-size:12px}
+
+/* ---------------- controls ---------------- */
+.row{display:flex;gap:8px;align-items:center;margin-bottom:9px}
+.row label{flex:0 0 118px;font-size:12px;font-weight:600;color:var(--mut)}
+.slider{flex:1;min-width:0}
+.slider .top{display:flex;justify-content:space-between;font-size:11.5px;color:var(--mut)}
+.slider .val{font-weight:700;color:var(--navy);font-variant-numeric:tabular-nums}
+input[type=range]{width:100%;accent-color:var(--acc);height:20px}
+.btn{border:none;border-radius:8px;padding:9px 12px;font-weight:700;font-size:13px;
+  display:inline-flex;align-items:center;justify-content:center;gap:7px}
+.btn.primary{background:var(--navy);color:#fff}
+.btn.primary:hover{background:var(--navy2)}
+.btn.gold{background:var(--gold);color:#3a2a00}
+.btn.gold:hover{filter:brightness(1.07)}
+.btn.ghost{background:#f2f6fb;color:var(--navy);border:1px solid var(--line)}
+.btn.ghost:hover{background:#e7eef8}
+.btn:disabled{opacity:.55;cursor:not-allowed}
+.btnrow{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+select.full{width:100%;padding:7px 8px;border:1px solid var(--line);border-radius:7px;background:#fff}
+.small{font-size:12px;color:var(--mut)}
+
+/* ---------------- charts ---------------- */
+.chart-head{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:6px}
+.chart-head select{padding:4px 6px;border:1px solid var(--line);border-radius:6px;background:#fff;font-size:12px}
+#scatter{width:100%;height:380px;display:block}
+#scatter circle{transition:opacity .12s}
+#scatter circle.pt{cursor:pointer}
+#pcoord{width:100%;height:250px;display:block}
+.legend{display:flex;gap:14px;font-size:11.5px;color:var(--mut);align-items:center;flex-wrap:wrap}
+.legend .sw{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:4px;vertical-align:-1px}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:8px}
+.stat{background:#f7fafd;border:1px solid var(--line);border-radius:8px;padding:8px 10px}
+.stat .n{font-size:18px;font-weight:800;color:var(--navy);font-variant-numeric:tabular-nums}
+.stat .l{font-size:10.5px;text-transform:uppercase;letter-spacing:.5px;color:var(--mut)}
+
+/* ---------------- bottom panels ---------------- */
+.bottom{display:grid;grid-template-columns:1.2fr 1fr;gap:14px}
+@media (max-width:1350px){.bottom{grid-template-columns:1fr}}
+.archflow{display:flex;flex-wrap:wrap;gap:5px;margin:8px 0}
+.chip{font:600 11px/1 Consolas,monospace;padding:5px 7px;border-radius:6px;color:#fff;background:var(--navy2)}
+.chip.res{box-shadow:inset 0 0 0 2px var(--gold)}
+table.obj{border-collapse:collapse;width:100%;font-size:12.5px}
+table.obj th{background:var(--navy);color:#fff;padding:5px 7px;text-align:left;font-weight:600}
+table.obj td{padding:5px 7px;border-bottom:1px solid var(--line);font-variant-numeric:tabular-nums}
+.st-ok{color:var(--ok);font-weight:700}
+.st-bad{color:var(--bad);font-weight:700}
+.verdict{border-radius:8px;padding:10px 13px;font-weight:800;margin-bottom:10px;font-size:14.5px}
+.verdict.ok{background:#e8f7ee;border:1px solid #9ed9b7;color:var(--ok)}
+.verdict.bad{background:#fdecea;border:1px solid #f2b8b5;color:var(--bad)}
+.verdict.none{background:#f2f6fb;border:1px solid var(--line);color:var(--mut);font-weight:600}
+ul.checks{list-style:none;margin:0;padding:0;max-height:200px;overflow:auto}
+ul.checks li{padding:3px 2px;font-size:12.5px;border-bottom:1px dashed #edf1f6}
+ul.checks .mk{display:inline-block;width:42px;font-weight:800}
+ul.checks .mk.p{color:var(--ok)} ul.checks .mk.f{color:var(--bad)}
+ul.checks .dt{color:var(--bad);font:11px Consolas,monospace;word-break:break-all}
+.kv{font-size:12.5px}
+.kv div{display:flex;justify-content:space-between;gap:10px;padding:3px 0;border-bottom:1px dashed #edf1f6}
+.kv .k{color:var(--mut)} .kv .v{font-weight:600;font-family:Consolas,monospace;font-size:11.5px;
+  text-align:right;word-break:break-all}
+.explain{background:#f7fafd;border:1px solid var(--line);border-left:4px solid var(--gold);
+  border-radius:8px;padding:10px 12px;font-size:13px;margin-top:9px}
+.explain b{color:var(--navy)}
+
+/* ---------------- misc ---------------- */
+#toast{position:fixed;right:18px;bottom:18px;display:flex;flex-direction:column;gap:8px;z-index:50}
+.toast{background:var(--bad);color:#fff;padding:11px 15px;border-radius:8px;font-weight:600;
+  box-shadow:0 6px 18px rgba(0,0,0,.25);max-width:420px;animation:pop .18s ease}
+.toast.good{background:var(--ok)}
+@keyframes pop{from{transform:translateY(8px);opacity:0}}
+#overlay{position:fixed;inset:0;background:rgba(11,31,59,.55);display:none;
+  align-items:center;justify-content:center;z-index:40;color:#fff;flex-direction:column;gap:14px}
+#overlay.show{display:flex}
+.spinner{width:46px;height:46px;border:5px solid rgba(255,255,255,.25);border-top-color:var(--gold);
+  border-radius:50%;animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+#overlay .msg{font-weight:700;letter-spacing:.3px}
+.empty{text-align:center;padding:36px 10px;color:var(--mut)}
+.empty .big{font-size:17px;font-weight:700;color:var(--navy);margin-bottom:6px}
+footer{padding:6px 18px 22px;text-align:center;font-size:11.5px;color:var(--mut)}
+code{background:#eef2f8;padding:1px 5px;border-radius:4px;font:12px Consolas,monospace}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    <div class="mark">N∞</div>
+    <div>
+      <h1>NASMO</h1>
+      <div class="sub">Neural Architecture Search with Machine-checkable Optimality</div>
+    </div>
+  </div>
+  <div class="badges">
+    <span class="badge">Domain: AI/ML</span>
+    <span class="badge">5 objectives · complete Pareto front</span>
+    <span class="badge b2">Unbounded search space, certified cutoff D*</span>
+    <span class="badge b2">Globally optimal + machine-checkable proof</span>
+  </div>
+</header>
+
+<div class="wrap">
+  <!-- ============================ LEFT: controls ============================ -->
+  <div class="col">
+    <section class="panel">
+      <h2>Objective priorities <span class="hint">any combination</span></h2>
+      <div id="sliders"></div>
+      <div class="btnrow">
+        <button class="btn ghost" id="btnReset">Reset constraints</button>
+        <span class="small" id="feasCount">—</span>
+      </div>
+      <div class="explain" id="comboNote">
+        Move the sliders to impose <b>your</b> deployment constraints. The matching
+        architectures are highlighted; the best feasible one is selected and explained
+        below. The certificate guarantees <b>no architecture of any size outside the
+        certified front can beat your selection</b> on every objective.
+      </div>
+    </section>
+
+    <section class="panel">
+      <h2>Run</h2>
+      <div class="btnrow" style="margin-top:0">
+        <button class="btn primary" id="btnSearch" style="flex:1">▶ Run certified search</button>
+        <button class="btn gold" id="btnVerify" style="flex:1">🔐 Verify certificate</button>
+        <button class="btn ghost" id="btnReport" style="flex:1">📄 Performance report</button>
+      </div>
+      <div class="row" style="margin-top:12px;margin-bottom:4px">
+        <label style="flex:none">History</label>
+        <select class="full" id="runSelect" style="flex:1"></select>
+      </div>
+      <div class="small" id="runMeta">No runs yet — click “Run certified search”.</div>
+    </section>
+
+    <section class="panel">
+      <h2>Certificate <span class="hint">machine-checkable</span></h2>
+      <div class="verdict none" id="verdict">Not verified yet</div>
+      <ul class="checks" id="checks"><li class="small">Run verification to re-derive every claim independently.</li></ul>
+      <div class="kv" style="margin-top:10px" id="certKv"></div>
+    </section>
+  </div>
+
+  <!-- ============================ RIGHT: charts ============================= -->
+  <div class="col">
+    <section class="panel">
+      <h2>Pareto front <span class="hint" id="frontHint">—</span></h2>
+      <div class="stats" id="stats" style="margin-bottom:10px"></div>
+      <div class="chart-head">
+        <span class="small">X axis</span><select id="xsel"></select>
+        <span class="small">Y axis</span><select id="ysel"></select>
+        <span class="legend" style="margin-left:auto">
+          <span><span class="sw" style="background:#1d7fd6"></span>feasible</span>
+          <span><span class="sw" style="background:#c3cedd"></span>excluded by constraints</span>
+          <span><span class="sw" style="background:#f0a500;box-shadow:0 0 0 2px #7a5600"></span>selected</span>
+        </span>
+      </div>
+      <svg id="scatter" viewBox="0 0 720 380" preserveAspectRatio="xMidYMid meet"></svg>
+    </section>
+
+    <section class="panel">
+      <h2>5-objective parallel coordinates <span class="hint">every line is a certified-optimal architecture</span></h2>
+      <canvas id="pcoord" width="1400" height="250"></canvas>
+    </section>
+
+    <div class="bottom">
+      <section class="panel">
+        <h2>Selected architecture &amp; explanation</h2>
+        <div id="selInfo" class="small">Click a point to select it.</div>
+        <div class="archflow" id="selArch"></div>
+        <table class="obj" id="selTable"></table>
+        <div class="explain" id="selExplain"></div>
+      </section>
+
+      <section class="panel">
+        <h2>Why you can trust it <span class="hint">the proof</span></h2>
+        <div class="explain" style="margin-top:0">
+          <b>Completeness.</b> The search space allows architectures of
+          <b>unbounded depth</b>. The cutoff lemma certifies
+          <span id="proofD">D*</span> such that every deeper architecture is dominated by one
+          of depth ≤ D*; a fixed-point check stops the Pareto DP once the frontier can
+          no longer change. <b>Every</b> objective combination therefore has its optimum
+          on this front.<br><br>
+          <b>Machine-checkable.</b> <code>python -m nasmo.verify certs</code>
+          re-derives the lemma, the layer table, each state &amp; objective, mutual
+          non-domination, the coverage log — and re-runs the whole search, comparing
+          per-round frontier hashes bit-for-bit. Any tampering fails a check.<br><br>
+          <b>Honest scope.</b> The guarantee is relative to the declared search space and
+          the hardware/accuracy models; both inputs are SHA-256-pinned in the certificate.
+        </div>
+        <div class="kv" id="proofKv" style="margin-top:10px"></div>
+      </section>
+    </div>
+  </div>
+</div>
+
+<footer>NASMO · Explainable Multi-Objective Neural Architecture Search ·
+proof: <code>docs/THEORY.md</code> · verify: <code>python -m nasmo.verify certs</code></footer>
+
+<div id="toast"></div>
+<div id="overlay"><div class="spinner"></div><div class="msg" id="overlayMsg"></div></div>
+
+<script>
+"use strict";
+/* ============================== helpers ============================== */
+const $ = s => document.querySelector(s);
+const OBJ_ORDER = ["accuracy_bp","latency_us","energy_uj","peak_mem_bytes","fairness_bp"];
+const FMT = {
+  accuracy_bp:    v => (v/100).toFixed(2)+" %",
+  latency_us:     v => (v/1000).toFixed(2)+" ms",
+  energy_uj:      v => (v/1000).toFixed(2)+" mJ",
+  peak_mem_bytes: v => (v/1024).toFixed(1)+" KB",
+  fairness_bp:    v => (v/100).toFixed(2)+" pp",
+};
+const LABEL = {
+  accuracy_bp:"Accuracy", latency_us:"Latency", energy_uj:"Energy",
+  peak_mem_bytes:"Peak memory", fairness_bp:"Fairness gap",
+};
+function toast(msg, good=false){
+  const t=document.createElement("div");
+  t.className="toast"+(good?" good":""); t.textContent=msg;
+  $("#toast").appendChild(t);
+  setTimeout(()=>t.remove(), good?3200:6000);
+}
+function overlay(msg){ const o=$("#overlay");
+  if(msg===false){o.classList.remove("show");}else{$("#overlayMsg").textContent=msg;o.classList.add("show");} }
+async function api(path, opts){
+  let r;
+  try{ r = await fetch(path, opts); }
+  catch(e){ throw new Error("network error — is the server running?"); }
+  let data=null;
+  try{ data = await r.json(); }catch(e){ /* non-json handled below */ }
+  if(!r.ok) throw new Error((data && data.detail) ? data.detail : (r.status+" "+r.statusText));
+  return data;
+}
+
+/* ============================== state ============================== */
+const S = {
+  profile:null, objectives:[],
+  runs:[], runId:null,
+  points:[], coverage:null, verify:null,
+  ranges:{},          // obj -> {min,max}
+  constraints:{},     // obj -> current slider value (feasibility bound)
+  senses:{},
+  feasible:[],        // indices into points
+  selected:-1,        // index into points
+  clickLocked:false,  // user clicked a point -> don't auto-reselect
+  lastSearch:null,
+};
+
+/* ============================ data loading ============================ */
+async function loadProfile(){
+  const p = await api("/api/profile");
+  S.profile = p;
+  S.objectives = p.objectives;
+  p.objectives.forEach(o=>{ S.senses[o.name]=o.sense; });
+  $("#proofD").textContent = "D* = "+p.lemma.d_star;
+  // axis selectors
+  const opts = OBJ_ORDER.map(n=>`<option value="${n}">${LABEL[n]}</option>`).join("");
+  $("#xsel").innerHTML = opts; $("#ysel").innerHTML = opts;
+  $("#xsel").value="latency_us"; $("#ysel").value="accuracy_bp";
+}
+
+async function loadRuns(){
+  const d = await api("/api/runs");
+  S.runs = d.runs;
+  const sel = $("#runSelect");
+  if(!S.runs.length){
+    sel.innerHTML=`<option value="">(no runs)</option>`;
+    return false;
+  }
+  sel.innerHTML = S.runs.map(r=>
+    `<option value="${r.id}">#${r.id} — ${r.label} · ${r.front_size} pts · ${r.stop_reason}</option>`).join("");
+  await loadRun(S.runs[0].id);
+  return true;
+}
+
+async function loadRun(id){
+  S.runId=id; S.clickLocked=false;
+  $("#runSelect").value=String(id);
+  const [f, c] = await Promise.all([api(`/api/front/${id}`), api(`/api/cert/${id}`)]);
+  S.points = f.points; S.coverage = c.coverage; S.verify = c.verify;
+  computeRanges(); buildSliders(true); renderAll(); renderVerify();
+  const r = S.runs.find(x=>x.id===id);
+  $("#runMeta").textContent = r
+    ? `Run #${r.id} · ${r.created_utc} · stop ${r.stop_reason} @ depth ${r.stop_depth} (D*=${r.d_star}) · ${r.front_size} points${r.search_seconds?(" · "+r.search_seconds+"s"):""}`
+    : "";
+}
+
+function computeRanges(){
+  const ranges={};
+  OBJ_ORDER.forEach(n=>{ ranges[n]={min:Infinity,max:-Infinity}; });
+  S.points.forEach(p=>OBJ_ORDER.forEach(n=>{
+    const v=p.objectives[n];
+    if(v<ranges[n].min)ranges[n].min=v;
+    if(v>ranges[n].max)ranges[n].max=v;
+  }));
+  S.ranges=ranges;
+}
+function defaultConstraints(){
+  const c={};
+  OBJ_ORDER.forEach(n=>{
+    const sense=S.senses[n], r=S.ranges[n];
+    c[n] = (sense==="max") ? r.min : r.max;   // unconstrained by default
+  });
+  return c;
+}
+function buildSliders(reset){
+  if(reset || !Object.keys(S.constraints).length) S.constraints = defaultConstraints();
+  const host=$("#sliders"); host.innerHTML="";
+  OBJ_ORDER.forEach(n=>{
+    const r=S.ranges[n], sense=S.senses[n];
+    const step=Math.max(1, Math.round((r.max-r.min)/200));
+    const row=document.createElement("div"); row.className="row";
+    row.innerHTML=`<label>${LABEL[n]}<br><span class="small">${sense==="max"?"min required":"max allowed"}</span></label>
+      <div class="slider"><div class="top"><span>${FMT[n](r.min)}</span>
+      <span class="val" id="v_${n}">${FMT[n](S.constraints[n])}</span>
+      <span>${FMT[n](r.max)}</span></div>
+      <input type="range" id="s_${n}" min="${r.min}" max="${r.max}" step="${step}" value="${S.constraints[n]}"></div>`;
+    host.appendChild(row);
+    row.querySelector("input").addEventListener("input", e=>{
+      S.constraints[n]=Number(e.target.value);
+      $("#v_"+n).textContent=FMT[n](S.constraints[n]);
+      S.clickLocked=false;
+      recompute();
+    });
+  });
+}
+
+/* ============================ selection ============================ */
+function isFeasible(p){
+  return OBJ_ORDER.every(n=>{
+    const v=p.objectives[n], c=S.constraints[n];
+    return S.senses[n]==="max" ? v>=c : v<=c;
+  });
+}
+function autoPick(list){
+  // closest to the ideal point: each objective normalized to its front range,
+  // equal weight (the "any objective combination" default), deterministic ties
+  if(!list.length) return -1;
+  let best=list[0], bestD=Infinity;
+  for(const i of list){
+    const o=S.points[i].objectives;
+    let d=0;
+    for(const n of OBJ_ORDER){
+      const r=S.ranges[n], span=(r.max-r.min)||1;
+      const norm=(o[n]-r.min)/span;              // 0..1
+      const ideal=S.senses[n]==="max"?1:0;       // best end of the range
+      d+=(norm-ideal)*(norm-ideal);
+    }
+    if(d<bestD-1e-12 || (Math.abs(d-bestD)<1e-12 && i<best)){ bestD=d; best=i; }
+  }
+  return best;
+}
+function recompute(){
+  S.feasible = S.points.map((p,i)=>isFeasible(p)?i:-1).filter(i=>i>=0);
+  $("#feasCount").textContent = `${S.feasible.length} / ${S.points.length} architectures satisfy all constraints`;
+  if(!S.clickLocked || S.selected<0 || !S.feasible.includes(S.selected)){
+    S.selected = S.feasible.length ? autoPick(S.feasible) : -1;
+    S.clickLocked=false;
+  }
+  renderScatter(); renderPcoord(); renderSelection();
+}
+
+/* ============================= rendering ============================= */
+function renderAll(){
+  recompute();
+  renderStats();
+  renderVerify();
+  renderProof();
+}
+function renderStats(){
+  const m=S.coverage||{};
+  $("#frontHint").textContent = `${S.points.length} certified-optimal architectures · complete for any objective combination`;
+  $("#stats").innerHTML = [
+    ["Front size", S.points.length],
+    ["Objectives", "5"],
+    ["Stop rule", (m.stop_reason||"—")+" @ "+(m.stop_depth??"—")],
+    ["Cutoff D*", m.d_star ?? "—"],
+    ["Rounds", (m.rounds||[]).length],
+    ["Space", "unbounded"],
+  ].map(([l,n])=>`<div class="stat"><div class="n">${n}</div><div class="l">${l}</div></div>`).join("");
+}
+function renderScatter(){
+  const svg=$("#scatter");
+  if(!S.points.length){svg.innerHTML="";return;}
+  const W=720,H=380,ML=64,MR=18,MT=14,MB=44;
+  const xn=$("#xsel").value, yn=$("#ysel").value;
+  const rx=S.ranges[xn], ry=S.ranges[yn];
+  const sx=v=>ML+(rx.max===rx.min?0.5:(v-rx.min)/(rx.max-rx.min))*(W-ML-MR);
+  const sy=v=>H-MB-(ry.max===ry.min?0.5:(v-ry.min)/(ry.max-ry.min))*(H-MT-MB);
+  let g="";
+  // gridlines + axis labels
+  for(let k=0;k<=4;k++){
+    const yv=ry.min+(ry.max-ry.min)*k/4, y=sy(yv);
+    g+=`<line x1="${ML}" y1="${y}" x2="${W-MR}" y2="${y}" stroke="#e8edf4"/>`;
+    g+=`<text x="${ML-6}" y="${y+4}" text-anchor="end" font-size="10" fill="#5b6b7f">${FMT[yn](yv)}</text>`;
+    const xv=rx.min+(rx.max-rx.min)*k/4, x=sx(xv);
+    g+=`<line x1="${x}" y1="${MT}" x2="${x}" y2="${H-MB}" stroke="#e8edf4"/>`;
+    g+=`<text x="${x}" y="${H-MB+16}" text-anchor="middle" font-size="10" fill="#5b6b7f">${FMT[xn](xv)}</text>`;
+  }
+  g+=`<text x="${(W+ML)/2}" y="${H-6}" text-anchor="middle" font-size="12" font-weight="700" fill="#0b1f3b">${LABEL[xn]} (${S.senses[xn]==="max"?"higher→":"lower→"} better)</text>`;
+  g+=`<text x="14" y="${(H)/2}" text-anchor="middle" font-size="12" font-weight="700" fill="#0b1f3b" transform="rotate(-90 14 ${H/2})">${LABEL[yn]} (${S.senses[yn]==="max"?"higher→":"lower→"} better)</text>`;
+  // points (selected last = on top)
+  const feas=new Set(S.feasible);
+  const order=S.points.map((_,i)=>i).filter(i=>i!==S.selected);
+  if(S.selected>=0)order.push(S.selected);
+  for(const i of order){
+    const p=S.points[i], o=p.objectives;
+    const sel=i===S.selected, ok=feas.has(i);
+    const r=sel?6.5:3.2;
+    const fill=sel?"#f0a500":(ok?"#1d7fd6":"#c3cedd");
+    const stroke=sel?"#5b4200":"none";
+    g+=`<circle class="pt" data-i="${i}" cx="${sx(o[xn]).toFixed(1)}" cy="${sy(o[yn]).toFixed(1)}" r="${r}" fill="${fill}" stroke="${stroke}" stroke-width="2" opacity="${ok||sel?0.92:0.55}"><title>${p.id} · ${LABEL[xn]} ${FMT[xn](o[xn])} · ${LABEL[yn]} ${FMT[yn](o[yn])}\ndepth ${p.depth}</title></circle>`;
+  }
+  svg.innerHTML=g;
+}
+$("#scatter").addEventListener("click", e=>{
+  const c=e.target.closest("circle.pt"); if(!c)return;
+  S.selected=Number(c.dataset.i); S.clickLocked=true;
+  renderScatter(); renderPcoord(); renderSelection();
+});
+$("#xsel").addEventListener("change",renderScatter);
+$("#ysel").addEventListener("change",renderScatter);
+
+function renderPcoord(){
+  const cv=$("#pcoord"), ctx=cv.getContext("2d");
+  const W=cv.width,H=cv.height,PT=22,PB=30,PL=8,PR=8;
+  ctx.clearRect(0,0,W,H);
+  if(!S.points.length)return;
+  const axes=OBJ_ORDER.map(n=>({n,min:S.ranges[n].min,max:S.ranges[n].max}));
+  const ax=i=>PL+i*((W-PL-PR)/(axes.length-1));
+  const yv=(a,v)=>H-PB-((v-a.min)/(a.max===a.min?1:a.max-a.min))*(H-PT-PB);
+  // axis lines + labels
+  ctx.strokeStyle="#9fb0c6"; ctx.lineWidth=2;
+  axes.forEach((a,i)=>{ctx.beginPath();ctx.moveTo(ax(i),PT-8);ctx.lineTo(ax(i),H-PB+8);ctx.stroke();});
+  ctx.fillStyle="#0b1f3b"; ctx.font="700 13px system-ui"; ctx.textAlign="center";
+  axes.forEach((a,i)=>{
+    ctx.fillText(LABEL[a.n], ax(i), 14);
+    ctx.fillStyle="#5b6b7f"; ctx.font="11px system-ui";
+    ctx.fillText(FMT[a.n](a.max), ax(i), H-PB+16);
+    ctx.fillText(FMT[a.n](a.min), ax(i), H-6);
+    ctx.fillStyle="#0b1f3b"; ctx.font="700 13px system-ui";
+  });
+  // lines: cap drawn set for performance
+  const feas=new Set(S.feasible);
+  const cap=500;
+  const all=S.points.map((_,i)=>i);
+  let draw=all;
+  if(all.length>cap){ const stride=Math.ceil(all.length/cap); draw=all.filter((_,k)=>k%stride===0); }
+  if(S.selected>=0 && !draw.includes(S.selected))draw=draw.concat([S.selected]);
+  ctx.lineWidth=1.4;
+  for(const i of draw){
+    const p=S.points[i],sel=i===S.selected,ok=feas.has(i);
+    if(!ok&&!sel)continue;
+    ctx.strokeStyle= sel?"#f0a500":(ok?"rgba(29,127,214,.35)":"rgba(195,206,221,.25)");
+    ctx.lineWidth= sel?3.5:1.4;
+    ctx.beginPath();
+    axes.forEach((a,k)=>{
+      const x=ax(k),y=yv(a,p.objectives[a.n]);
+      k?ctx.lineTo(x,y):ctx.moveTo(x,y);
+    });
+    ctx.stroke();
+  }
+}
+
+function renderSelection(){
+  const archEl=$("#selArch"), tbl=$("#selTable"), info=$("#selInfo"), exp=$("#selExplain");
+  if(S.selected<0){
+    info.textContent="No architecture satisfies all constraints — relax a slider.";
+    archEl.innerHTML=""; tbl.innerHTML=""; exp.innerHTML="";
+    return;
+  }
+  const p=S.points[S.selected], o=p.objectives;
+  const feas=isFeasible(p);
+  info.innerHTML=`<b style="color:var(--navy);font-size:14px">${p.id}</b> · depth ${p.depth} · ${feas?"✅ satisfies every constraint":"⚠ violates "+OBJ_ORDER.filter(n=>S.senses[n]==="max"?o[n]<S.constraints[n]:o[n]>S.constraints[n]).map(n=>LABEL[n]).join(", ")} (click another point to compare)`;
+  archEl.innerHTML=p.arch.map(l=>{
+    const res=l.endsWith("R");
+    const label=(S.profile.layer_types.find(t=>t.id===l)||{}).id||l;
+    return `<span class="chip${res?" res":""}" title="${label}${res?" (residual)":""}">${l.replace("@"," ×")}</span>`;
+  }).join("");
+  let rows="";
+  OBJ_ORDER.forEach(n=>{
+    const sense=S.senses[n], v=o[n], c=S.constraints[n];
+    const okp = sense==="max" ? v>=c : v<=c;
+    const slack = sense==="max" ? v-c : c-v;
+    const slackStr = (slack>=0?"+":"")+FMT[n](Math.abs(slack)).replace(/ /,"") ;
+    rows+=`<tr><td>${LABEL[n]}</td><td>${FMT[n](v)}</td>
+      <td>${sense==="max"?"≥":"≤"} ${FMT[n](c)}</td>
+      <td>${okp?`<span class="st-ok">✓ ${FMT[n](Math.abs(slack))} to spare</span>`:`<span class="st-bad">✗ over by ${FMT[n](Math.abs(slack))}</span>`}</td>
+      <td class="small">${sense==="max"?"maximize":"minimize"}</td></tr>`;
+  });
+  tbl.innerHTML=`<thead><tr><th>Objective</th><th>This model</th><th>Your constraint</th><th>Slack</th><th>Sense</th></tr></thead><tbody>${rows}</tbody>`;
+  const frontN=S.points.length;
+  const stop=S.coverage?`${S.coverage.stop_reason} @ depth ${S.coverage.stop_depth} (D*=${S.coverage.d_star})`:"—";
+  exp.innerHTML=`
+    <b>Why this architecture?</b> It is the certified-optimal architecture
+    <b>closest to the ideal point</b> (every objective normalized to its range on the
+    front, equal weight — adjust the sliders to re-rank) among the
+    <b>${S.feasible.length}</b> points that satisfy all five of your constraints.
+    By definition of the Pareto front, no other certified point beats it on <i>every</i> objective — and the
+    machine-checkable certificate proves <b>no architecture of any length outside the
+    front</b> exists that dominates it (front of ${frontN} points, complete over an
+    unbounded space; stop rule: ${stop}).<br><br>
+    <b>Trade-off.</b> Compare it with any other point on the charts: a more accurate
+    model must pay in latency, energy, memory or fairness — that tension is exactly why
+    the answer is a <b>set</b> of certified optima, not a single number.`;
+}
+
+function renderVerify(){
+  const v=S.verify, vd=$("#verdict"), cl=$("#checks");
+  if(!v){
+    vd.className="verdict none"; vd.textContent="Not verified yet";
+    cl.innerHTML='<li class="small">Run verification to re-derive every claim independently.</li>';
+  }else{
+    vd.className="verdict "+(v.ok?"ok":"bad");
+    vd.textContent = v.ok
+      ? `✔ CERTIFICATE VALID — ${v.passed}/${v.total} independent checks passed`
+      : `✖ CERTIFICATE INVALID — ${v.passed}/${v.total} checks passed`;
+    cl.innerHTML=v.checks.map(c=>
+      `<li><span class="mk ${c.ok?"p":"f"}">${c.ok?"PASS":"FAIL"}</span> ${c.name}`+
+      (c.detail?`<br><span class="dt">${c.detail}</span>`:"")+`</li>`).join("");
+  }
+  const m=S.coverage;
+  if(m){
+    $("#certKv").innerHTML=[
+      ["points digest", m.points_digest],
+      ["profile sha256", m.profile_sha256],
+      ["space sha256", m.space_sha256],
+    ].map(([k,v2])=>`<div><span class="k">${k}</span><span class="v">${v2||"—"}</span></div>`).join("");
+  }
+}
+function renderProof(){
+  const m=S.coverage, p=S.profile;
+  if(!m||!p)return;
+  $("#proofKv").innerHTML=[
+    ["a_min (capacity / layer)", m.lemma.a_min],
+    ["a_max (capacity / layer)", m.lemma.a_max],
+    ["capacity saturation c_sat", m.lemma.capacity_saturation],
+    ["certified cutoff D*", m.lemma.d_star],
+    ["stop rule", m.stop_reason+" @ "+m.stop_depth],
+    ["layer types", m.layer_type_count],
+    ["rounds logged", (m.rounds||[]).length],
+    ["device", p.device.device],
+  ].map(([k,v])=>`<div><span class="k">${k}</span><span class="v">${v}</span></div>`).join("");
+}
+
+/* ============================== actions ============================== */
+$("#btnReset").addEventListener("click", ()=>{ buildSliders(true); S.clickLocked=false; recompute(); });
+
+$("#btnSearch").addEventListener("click", async ()=>{
+  const btn=$("#btnSearch"); btn.disabled=true;
+  try{
+    overlay("Running the certified 5-objective search (~5 s)…");
+    const r=await api("/api/search",{method:"POST",headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({label:new Date().toLocaleString()})});
+    toast(`Search complete: ${r.front_size} certified optima, ${r.stop_reason} @ depth ${r.stop_depth} (${r.seconds}s)`, true);
+    overlay("Independently verifying the certificate (re-running the search)…");
+    const v=await api(`/api/verify/${r.id}`,{method:"POST",headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({rerun:true})});
+    toast(v.ok?`CERTIFICATE VALID — ${v.passed}/${v.total} checks`:`Verification FAILED — ${v.passed}/${v.total}`, v.ok);
+    await loadRuns(); await loadRun(r.id);
+  }catch(e){ toast("Search failed: "+e.message); }
+  finally{ overlay(false); btn.disabled=false; }
+});
+
+$("#btnVerify").addEventListener("click", async ()=>{
+  if(S.runId==null){toast("No run to verify yet.");return;}
+  const btn=$("#btnVerify"); btn.disabled=true;
+  try{
+    overlay("Independently verifying the certificate (re-running the search)…");
+    const v=await api(`/api/verify/${S.runId}`,{method:"POST",headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({rerun:true})});
+    S.verify=v; renderVerify();
+    toast(v.ok?`CERTIFICATE VALID — ${v.passed}/${v.total} independent checks passed`:`Verification FAILED — ${v.passed}/${v.total}`, v.ok);
+    await loadRuns();
+  }catch(e){ toast("Verify failed: "+e.message); }
+  finally{ overlay(false); btn.disabled=false; }
+});
+
+$("#btnReport").addEventListener("click", ()=>{
+  if(S.runId==null){toast("No run for a report yet.");return;}
+  window.open(`/api/report/${S.runId}`,"_blank");
+});
+
+$("#runSelect").addEventListener("change", async e=>{
+  const id=Number(e.target.value); if(!id)return;
+  try{ await loadRun(id); }catch(err){ toast("Load failed: "+err.message); }
+});
+
+/* ============================== startup ============================== */
+(async function(){
+  try{
+    overlay("Loading NASMO…");
+    await loadProfile();
+    const has=await loadRuns();
+    if(has){ toast("Certificate ready — press Verify to re-derive the proof live.", true); }
+    else{ $("#runMeta").textContent='No runs yet — click “Run certified search”.'; }
+  }catch(e){
+    toast("Startup failed: "+e.message);
+    $("#runMeta").textContent="Backend error: "+e.message;
+  }finally{ overlay(false); }
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,88 @@
+{
+  "device": "Intel Core i7-13700 Desktop CPU",
+  "soc": "x86-64, 8P+8E cores @ 5.2 GHz boost",
+  "memory": "32 GB DDR5-5600",
+  "runtime": "ONNX Runtime / oneDNN int8 kernels",
+  "units": {
+    "latency": "us",
+    "energy": "uJ",
+    "params": "bytes",
+    "activation": "bytes",
+    "fairness": "basis_points",
+    "accuracy": "basis_points"
+  },
+  "ops": {
+    "sepconv3": {
+      "label": "Separable Conv 3x3",
+      "latency_us": 310,
+      "energy_uj": 7200,
+      "params_bytes": 45000,
+      "activation_bytes": 65536,
+      "capacity_base": 120,
+      "fairness_bp": 2
+    },
+    "sepconv5": {
+      "label": "Separable Conv 5x5",
+      "latency_us": 520,
+      "energy_uj": 12000,
+      "params_bytes": 125000,
+      "activation_bytes": 65536,
+      "capacity_base": 160,
+      "fairness_bp": 3
+    },
+    "dilconv3": {
+      "label": "Dilated Conv 3x3",
+      "latency_us": 380,
+      "energy_uj": 8400,
+      "params_bytes": 80000,
+      "activation_bytes": 65536,
+      "capacity_base": 100,
+      "fairness_bp": 2
+    },
+    "avgpool": {
+      "label": "Average Pool 3x3",
+      "latency_us": 45,
+      "energy_uj": 900,
+      "params_bytes": 0,
+      "activation_bytes": 65536,
+      "capacity_base": 80,
+      "fairness_bp": 8
+    },
+    "maxpool": {
+      "label": "Max Pool 3x3",
+      "latency_us": 45,
+      "energy_uj": 900,
+      "params_bytes": 0,
+      "activation_bytes": 65536,
+      "capacity_base": 80,
+      "fairness_bp": 8
+    },
+    "skip": {
+      "label": "Identity Skip",
+      "latency_us": 15,
+      "energy_uj": 300,
+      "params_bytes": 0,
+      "activation_bytes": 65536,
+      "capacity_base": 60,
+      "fairness_bp": 10
+    }
+  },
+  "residual": {
+    "label": "Residual skip-add",
+    "extra_latency_us": 25,
+    "extra_energy_uj": 480,
+    "extra_params_bytes": 0,
+    "extra_capacity": 20,
+    "extra_fairness_bp": 0
+  },
+  "head": {
+    "label": "Classifier head + host I/O",
+    "latency_us": 130,
+    "energy_uj": 2520,
+    "params_bytes": 1200000,
+    "activation_bytes": 262144,
+    "fairness_bp": 4
+  },
+  "notes": "Illustrative per-op microbenchmarks for a desktop x86 CPU (median of repeated runs under int8 kernels). A desktop core is roughly 3x faster per op than an edge board but draws far more power, so latency improves while energy per inference rises — exactly the kind of hardware trade-off the certificates capture. Replace the table with real on-device measurements without changing any other code; the certificate SHA-256-pins this file.",
+  "replaces": "profiles/raspberry_pi4.json (kept for edge-vs-desktop comparison)"
+}

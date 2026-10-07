@@ -1,0 +1,23 @@
+{
+  "space_name": "unbounded-layer-sequence-v1",
+  "description": "An architecture is a sequence of >= 1 layers; sequence length is UNBOUNDED. Each layer is (op, width, residual). Global completeness over the infinite space follows from the certified depth cutoff (see docs/THEORY.md).",
+  "ops": ["sepconv3", "sepconv5", "dilconv3", "avgpool", "maxpool", "skip"],
+  "widths": [0.5, 1.0, 1.5],
+  "residual_flags": [false, true],
+  "min_layers": 1,
+  "max_layers": null,
+  "accuracy_model": {
+    "type": "linear_saturation",
+    "acc_min_bp": 6500,
+    "acc_max_bp": 9450,
+    "capacity_saturation": 600
+  },
+  "objectives": [
+    {"name": "accuracy_bp", "sense": "max", "label": "Accuracy (bp)"},
+    {"name": "latency_us", "sense": "min", "label": "Latency (us)"},
+    {"name": "energy_uj", "sense": "min", "label": "Energy (uJ)"},
+    {"name": "peak_mem_bytes", "sense": "min", "label": "Peak memory (bytes)"},
+    {"name": "fairness_bp", "sense": "min", "label": "Fairness gap (bp)"}
+  ],
+  "notes": "All per-layer quantities are exact integers so dominance tests and certificates are bit-exact. Accuracy = acc_min + floor((acc_max-acc_min)*cap/c_sat) below saturation, acc_max at/above saturation, which makes accuracy a strictly increasing function of capacity below c_sat and exactly representable in integer arithmetic."
+}

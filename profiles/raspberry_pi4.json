@@ -1,0 +1,87 @@
+{
+  "device": "Raspberry Pi 4 Model B",
+  "soc": "Broadcom BCM2711, 4x Cortex-A72 @ 1.5 GHz",
+  "memory": "4 GB LPDDR4",
+  "runtime": "TFLite / XNNPACK int8 kernels",
+  "units": {
+    "latency": "us",
+    "energy": "uJ",
+    "params": "bytes",
+    "activation": "bytes",
+    "fairness": "basis_points",
+    "accuracy": "basis_points"
+  },
+  "ops": {
+    "sepconv3": {
+      "label": "Separable Conv 3x3",
+      "latency_us": 900,
+      "energy_uj": 1200,
+      "params_bytes": 45000,
+      "activation_bytes": 65536,
+      "capacity_base": 120,
+      "fairness_bp": 2
+    },
+    "sepconv5": {
+      "label": "Separable Conv 5x5",
+      "latency_us": 1500,
+      "energy_uj": 2000,
+      "params_bytes": 125000,
+      "activation_bytes": 65536,
+      "capacity_base": 160,
+      "fairness_bp": 3
+    },
+    "dilconv3": {
+      "label": "Dilated Conv 3x3",
+      "latency_us": 1100,
+      "energy_uj": 1400,
+      "params_bytes": 80000,
+      "activation_bytes": 65536,
+      "capacity_base": 100,
+      "fairness_bp": 2
+    },
+    "avgpool": {
+      "label": "Average Pool 3x3",
+      "latency_us": 120,
+      "energy_uj": 150,
+      "params_bytes": 0,
+      "activation_bytes": 65536,
+      "capacity_base": 80,
+      "fairness_bp": 8
+    },
+    "maxpool": {
+      "label": "Max Pool 3x3",
+      "latency_us": 120,
+      "energy_uj": 150,
+      "params_bytes": 0,
+      "activation_bytes": 65536,
+      "capacity_base": 80,
+      "fairness_bp": 8
+    },
+    "skip": {
+      "label": "Identity Skip",
+      "latency_us": 40,
+      "energy_uj": 50,
+      "params_bytes": 0,
+      "activation_bytes": 65536,
+      "capacity_base": 60,
+      "fairness_bp": 10
+    }
+  },
+  "residual": {
+    "label": "Residual skip-add",
+    "extra_latency_us": 60,
+    "extra_energy_uj": 80,
+    "extra_params_bytes": 0,
+    "extra_capacity": 20,
+    "extra_fairness_bp": 0
+  },
+  "head": {
+    "label": "Classifier head + host I/O",
+    "latency_us": 350,
+    "energy_uj": 420,
+    "params_bytes": 1200000,
+    "activation_bytes": 262144,
+    "fairness_bp": 4
+  },
+  "notes": "Illustrative per-op microbenchmarks for an edge-class ARM board (median of repeated runs under int8 kernels). Representative values used for the hackathon demo; replace the table with on-device measurements without changing any other code. Fairness gap: convolutions are trained with group-aware batching and incur a small disparity gap per unit of capacity, while pooling/identity layers carry the gap of the activations they pass through (higher gap per capacity unit) — this is what makes convs, pools and skips trade off against each other on the fairness objective instead of one op dominating."
+}
